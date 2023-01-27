@@ -113,7 +113,7 @@ class Game:
                 return None
 
         elif method == "terrible_player":
-            if np.random.random() < 0.35:
+            if np.random.random() < 0.1:
                 return self.get_best_move("random", False)
             else:
                 return self.get_best_move("minimax_2", False, get_recommendation)
