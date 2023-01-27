@@ -7,6 +7,7 @@ from piece_square_tables import piece_square_tables_early_to_midgame, piece_squa
 
 explain_color = True
 colors = {True: "White", False: "Black"}
+pieces = {1: "Pawn", 2: "Knight", 3: "Bishop", 4: "Rook", 5: "Queen", 6: "King"}
 piece_values_early_to_midgame = {1: 9, 2: 30, 3: 30, 4: 50, 5: 100, 6: 1000000}
 piece_values_endgame = {1: 9, 2: 25, 3: 30, 4: 80, 5: 120, 6: 1000000}
 #piece_threaten_lookup_table = {1: 0.45, 2: 1.5, 3: 1.5, 4: 2.5, 5: 5, 6: 0}
@@ -71,9 +72,6 @@ class Game:
     def square_number_to_coords(self, square_number):
         return 7-chess.square_rank(square_number), chess.square_file(square_number)
 
-    def coords_to_square_number(self, row, col):
-        return 8 * (7-row) + col
-
     def get_moves_for_field(self, origin):
         possible_moves = []
         possible_coordinates = []
@@ -101,9 +99,9 @@ class Game:
 
         if method == "auto":
             if self.pieces_left <= 4:
-                method = "ab_6"
+                method = "minimax_6"
             else:
-                method = "ab_5"
+                method = "minimax_5"
         if log:
             print(f"   finding best move for {colors[self.board.turn]} with method: {method}")
 
@@ -118,22 +116,22 @@ class Game:
             if np.random.random() < 0.35:
                 return self.get_best_move("random", False)
             else:
-                return self.get_best_move("ab_2", False, get_recommendation)
-        elif method == "ab_1":
+                return self.get_best_move("minimax_2", False, get_recommendation)
+        elif method == "minimax_1":
             return self.alphabeta_search(1, get_recommendation)
-        elif method == "ab_2":
+        elif method == "minimax_2":
             return self.alphabeta_search(2, get_recommendation)
-        elif method == "ab_3":
+        elif method == "minimax_3":
             return self.alphabeta_search(3, get_recommendation)
-        elif method == "ab_4":
+        elif method == "minimax_4":
             return self.alphabeta_search(4, get_recommendation)
-        elif method == "ab_5":
+        elif method == "minimax_5":
             return self.alphabeta_search(5, get_recommendation)
-        elif method == "ab_6":
+        elif method == "minimax_6":
             return self.alphabeta_search(6, get_recommendation)
-        elif method == "ab_7":
+        elif method == "minimax_7":
             return self.alphabeta_search(7, get_recommendation)
-        elif method == "ab_8":
+        elif method == "minimax_8":
             return self.alphabeta_search(8, get_recommendation)
         else:
             raise ValueError(f"Invalid method selected: {method}")
@@ -293,10 +291,35 @@ class Game:
                 capture_moves_exist = True
         return non_capture_moves, capture_moves_exist
 
+    def describe_move(self, move):
+        if move is None:
+            return "Game is over, go outside."
+
+        origin = move.from_square
+        target = move.to_square
+        promotion = move.promotion
+        piece = self.board.piece_at(origin)
+        color = colors[piece.color]
+
+        if self.board.is_capture(move):
+            victim = self.board.piece_at(target)
+            if not victim:
+                return f"En Passant with Pawn at {chess.square_name(origin)} to {chess.square_name(target)}"
+            else:
+                desc = f"{color} captures {pieces[victim.piece_type]} with {pieces[piece.piece_type]} from {chess.square_name(origin)} to {chess.square_name(target)}"
+        else:
+            desc = f"{color} moves with {pieces[piece.piece_type]} from {chess.square_name(origin)} to {chess.square_name(target)}"
+
+        if promotion:
+            desc += f" promotes to {pieces[promotion]}"
+        return desc
+
+
+
 def simulate_game():
     game = Game()
     for i in range(10):
-        game.board.push(game.get_best_move("ab_5"))
+        game.board.push(game.get_best_move("auto"))
         print(i)
 
 
@@ -306,5 +329,3 @@ if __name__ == "__main__":
     profile.runcall(simulate_game)
     ps = pstats.Stats(profile)
     ps.print_stats()
-
-
