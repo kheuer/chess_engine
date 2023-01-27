@@ -22,10 +22,10 @@ colors = {True: "White", False: "Black"}
 def coordinates_to_square(row, col):
     return (7-row)*8 + col
 
-def square_number_to_coords(self, square_number):
+def square_number_to_coords(square_number):
     return 7-chess.square_rank(square_number), chess.square_file(square_number)
 
-def coords_to_square_number(self, row, col):
+def coords_to_square_number(row, col):
     return 8 * (7-row) + col
 
 class GUI:
@@ -228,7 +228,7 @@ class GUI:
         return board_frame
 
     def handle_click(self, square):
-        if not self.selected_origin:
+        if self.selected_origin is None:
             self.selected_origin = square
             return
 
