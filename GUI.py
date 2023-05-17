@@ -14,7 +14,7 @@ size_of_piece = 60
 width_of_square = 60
 height_of_square = 60
 
-ai_methods = ["random", "terrible_player", "minimax_2", "minimax_3", "minimax_4", "minimax_5", "auto"]
+ai_methods = ["random", "terrible_player", "minimax_2", "minimax_3", "minimax_4", "minimax_5", "minimax_auto", "mcts_1s", "mcts_3s", "mcts_6s", "mcts_10s"]
 
 colors = {True: "White", False: "Black"}
 
@@ -35,8 +35,8 @@ class GUI:
         self.whites_turn = True
         self.game_over = False
         self.selected_origin = None     # refers to a field from where a move can be made
-        self.selected_ai_black = "random"
-        self.selected_ai_white = "random"
+        self.selected_ai_black = "mcts_10s"
+        self.selected_ai_white = "minimax_2"
         self.move_descs = []
 
         self.root = Tk()
@@ -82,8 +82,6 @@ class GUI:
         self.black_fitness_var = StringVar()
         self.game_state_var = StringVar()
 
-
-
         Label(explain_frame, textvariable=self.white_fitness_var).pack()
         Label(explain_frame, textvariable=self.black_fitness_var).pack()
         ttk.Separator(explain_frame, orient="horizontal").pack()
@@ -118,21 +116,16 @@ class GUI:
         self.last_moves_var = StringVar()
         Label(control_frame, textvariable=self.last_moves_var).pack()
 
-
-
-
         self.refresh_gui()
         self.game_state_var.set("Game is not running.")
         self.white_fitness_var.set("white_fitness: N/A")
         self.black_fitness_var.set("black_fitness: N/A")
         self.root.mainloop()
 
-
     def reset_board(self):
         self.game = Game()
         self.move_descs = []
         self.refresh_gui()
-
 
     def simulate_game(self):
         while not self.game.board.outcome():
@@ -140,8 +133,6 @@ class GUI:
             self.refresh_gui()
             self.root.update()
             time.sleep(1)
-
-
 
     def increment_ai(self, color):
         if color:
@@ -156,8 +147,6 @@ class GUI:
         else:
             self.selected_ai_black = ai_methods[new_index]
         self.refresh_gui()
-
-
 
     def simulate_ai_move(self):
         self.make_ai_move()

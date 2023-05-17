@@ -2,6 +2,7 @@ import numpy as np
 import chess
 import cProfile
 import pstats
+import time
 from piece_square_tables import piece_square_tables_early_to_midgame, piece_square_tables_endgame
 
 
@@ -10,8 +11,7 @@ colors = {True: "White", False: "Black"}
 pieces = {1: "Pawn", 2: "Knight", 3: "Bishop", 4: "Rook", 5: "Queen", 6: "King"}
 piece_values_early_to_midgame = {1: 9, 2: 30, 3: 30, 4: 50, 5: 100, 6: 1000000}
 piece_values_endgame = {1: 9, 2: 25, 3: 30, 4: 80, 5: 120, 6: 1000000}
-#piece_threaten_lookup_table = {1: 0.45, 2: 1.5, 3: 1.5, 4: 2.5, 5: 5, 6: 0}
-#piece_protect_lookup_table = {1: 0.45, 2: 1.5, 3: 1.5, 4: 2.5, 5: 5, 6: 0}
+exploration_parameter = np.sqrt(2)     # exploration factor for monte carlo tree search
 
 def is_number(x):
     if isinstance(x, bool):
@@ -94,10 +94,10 @@ class Game:
         else:
             self.endgame_has_started = False
 
-    def get_best_move(self, method="auto", log=False, get_recommendation=False):
+    def get_best_move(self, method="auto", log=False):
         self.set_endgame_flag()
 
-        if method == "auto":
+        if method == "minimax_auto":
             if self.pieces_left <= 4:
                 method = "minimax_6"
             else:
@@ -116,25 +116,80 @@ class Game:
             if np.random.random() < 0.1:
                 return self.get_best_move("random", False)
             else:
-                return self.get_best_move("minimax_2", False, get_recommendation)
+                return self.get_best_move("minimax_2", False)
         elif method == "minimax_1":
-            return self.alphabeta_search(1, get_recommendation)
+            return self.alphabeta_search(1)
         elif method == "minimax_2":
-            return self.alphabeta_search(2, get_recommendation)
+            return self.alphabeta_search(2)
         elif method == "minimax_3":
-            return self.alphabeta_search(3, get_recommendation)
+            return self.alphabeta_search(3)
         elif method == "minimax_4":
-            return self.alphabeta_search(4, get_recommendation)
+            return self.alphabeta_search(4)
         elif method == "minimax_5":
-            return self.alphabeta_search(5, get_recommendation)
+            return self.alphabeta_search(5)
         elif method == "minimax_6":
-            return self.alphabeta_search(6, get_recommendation)
-        elif method == "minimax_7":
-            return self.alphabeta_search(7, get_recommendation)
-        elif method == "minimax_8":
-            return self.alphabeta_search(8, get_recommendation)
+            return self.alphabeta_search(6)
+        elif method == "mcts_1s":
+            return self.monte_carlo_tree_search(1)
+        elif method == "mcts_3s":
+            return self.monte_carlo_tree_search(3)
+        elif method == "mcts_6s":
+            return self.monte_carlo_tree_search(6)
+        elif method == "mcts_10s":
+            return self.monte_carlo_tree_search(10)
         else:
             raise ValueError(f"Invalid method selected: {method}")
+
+    def monte_carlo_tree_search(self, seconds):
+        end_time = time.time() + seconds
+        maximizing_for = self.board.turn
+        starting_n_turns = len(self.board.move_stack)
+        root_node = MCTS_Node(None, [], None)  # create root Node
+        while time.time() <= end_time:
+            leaf = self.mcts_selection(root_node)
+            expanded_leaf = self.mcts_expansion(leaf)
+            end_result = self.mcts_simulate(maximizing_for)
+            self.mcts_backpropagate(expanded_leaf, end_result)
+            while len(self.board.move_stack) != starting_n_turns:  # take back turns to where the algorithm started from
+                self.board.pop()
+        print("preformed monte carlo tree search with root node", root_node)
+        return root_node.get_most_visited_child().move
+
+    def mcts_selection(self, node):
+        while node.children:
+            node = node.get_highest_scored_child()
+            if node.move is not None:
+                self.board.push(node.move)
+        return node
+
+    def mcts_expansion(self, node):
+        if self.board.outcome():    # game has ended
+            return node
+        else:
+            for move in self.board.legal_moves:
+                node.children.append(MCTS_Node(node, [], move))
+        random_child = node.get_random_child()
+        self.board.push(random_child.move)
+        return random_child
+
+    def mcts_simulate(self, maximizing_for):
+        while not self.board.outcome():
+            self.board.push(np.random.choice(list(self.board.legal_moves)))
+        winner = self.board.outcome().winner
+        if winner is None:
+            return 0  # simulations ends in draw
+        elif winner == maximizing_for:
+            return 1  # simulation ends in win
+        else:
+            return -1  # simulation ends in defeat
+
+    def mcts_backpropagate(self, node, result):
+        node.utility += result
+        node.n_visits += 1
+        if node.parent is None:
+            return
+        else:
+            self.mcts_backpropagate(node.parent, result)
 
     def get_fitness(self, color):
         if self.endgame_has_started:
@@ -194,22 +249,15 @@ class Game:
         for row in array:
             print([round(x, 2) for x in row])
 
-    def alphabeta_search(self, depth, get_recommendation):
+    def alphabeta_search(self, depth):
         # this should only be initialized with an even depth because of the horizon effect
         print(f"Get best move for {colors[self.board.turn]} with dept={depth}")
         fitness_container = self.alphabeta(depth, FitnessContainer(-10000000000000), FitnessContainer(1000000000000), True, self.board.turn, depth % 2 == 0)
         print(fitness_container.content, "payoff", fitness_container.val)
 
         if self.board.outcome():    # Game has ended
-            if get_recommendation:
-                return None, None
-            else:
-                return None
-
-        if get_recommendation:
-            return fitness_container.content[0], fitness_container.content[1]
-        else:
-            return fitness_container.content[0]
+            return None
+        return fitness_container.content[0]
 
     def alphabeta(self, depth, alpha, beta, is_maximizing, target_color, is_even):
         if depth == 0:       # depth is zero
@@ -315,11 +363,42 @@ class Game:
         return desc
 
 
+class MCTS_Node:
+    def __init__(self, parent, children, move):
+        assert isinstance(parent, MCTS_Node) or parent is None
+        assert isinstance(children, list)
+        assert isinstance(move, chess.Move) or move is None
+
+        self.parent = parent
+        self.children = children
+        self.move = move
+
+        self.utility = 0
+        self.n_visits = 1
+
+    def get_ucb_score(self):
+        return self.utility / self.n_visits + exploration_parameter * np.sqrt(np.log(self.parent.n_visits) / self.n_visits)
+
+    def __repr__(self):
+        return f"{self.utility}/{self.n_visits}"
+
+    def get_random_child(self):
+        return np.random.choice(self.children)
+
+    def get_most_visited_child(self):
+        n_visits = [x.n_visits for x in self.children]
+        indices = [i for i, x in enumerate(n_visits) if x == max(n_visits)]
+        return self.children[np.random.choice(indices)]
+
+    def get_highest_scored_child(self):
+        scores = [x.get_ucb_score() for x in self.children]
+        indices = [i for i, x in enumerate(scores) if x == max(scores)]
+        return self.children[np.random.choice(indices)]
 
 def simulate_game():
     game = Game()
     for i in range(10):
-        game.board.push(game.get_best_move("auto"))
+        game.board.push(game.get_best_move("minimax_5"))
         print(i)
 
 
