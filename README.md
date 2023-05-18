@@ -1,5 +1,5 @@
 # Chess Engine
-This is a simple Chess Engine you can play against. 
+This is a simple Chess Engine you can play against. The algortithms used are MiniMax and Monte Carlo Tree Search.
 The difficulty level is determined by the AI opponent chosen, it can also be changed during a match. 
 
 The available AI opponents are:
@@ -7,7 +7,8 @@ The available AI opponents are:
 - minimax_2: This chooses the strongest move while looking 1 turn ahead without making mistakes.
 - terrible_player: This generally uses minimax_2 but sometimes blunders by making a random move. This is equivalent to a complete novice players style. 
 - minimax_3 / minimax_4 / minimax_5: This chooses the strongest move while looking 3 - 5 moves ahead. On this difficulty it can beat a new to intermediary player.
-- auto: This plays the minimax_5 algorithm but looks an additional turn ahead in the endgame where computation is easier.
+- minimax_auto: This plays the minimax_5 algorithm but looks an additional turn ahead in the endgame where computation is easier.
+- mcts_1s / mcts_3s / mcts_6 / mcts_10s: This performs a Monte Carlo Tree search which will be abrupted after 1-10 seconds respectively.
 
 ## MiniMax Algorithm
 The algorithm used for most opponents is the MiniMax Algorithm, a popular backtracking algorithm in Game Theory and Artificial Intelligence. A requirement for this is being able to express each position reachable in game as a numeric score describing how favourable it is for each player. It then considers each possible chess move, every possible response of the opponent, the AI´s responses to the opponents response and so on. It then assumes that the opponent will try to win the game for itself and always play perfectly without making any mistakes.
@@ -38,6 +39,15 @@ As the state where the Game has ended due to checkmate cannot accurately be desc
 Early on in development I defined this state as 1000000 for a win and -1000000 for a loss to ensure it is always the highest or lowest number in the frontier. 
 However, this causes the algorithm to always prioritize the first checkmate it reaches in evaluation, even if checkmates are available that occur earlier in the Game. To prevent this I slightly nudge the score of checkmate by the number of turns it takes to reach it.
 
+## Monte Carlo Tree Search
+Monte Carlo Tree Search (MCTS) is a heuristic search algorithm commonly used in decision-making processes for games and optimization problems. It combines the principles of tree search and random simulation to efficiently explore the search space. The algorithm starts with a tree structure representing the possible states and actions of the game. By iteratively selecting nodes, expanding the tree, and simulating random playouts from these nodes, MCTS gradually builds up knowledge about the game and identifies promising actions. The exploration-exploitation tradeoff is balanced by using upper confidence bounds, such as the Upper Confidence Bound for Trees (UCT), to guide the selection of nodes during the search. The root node of the tree is the game state as it is and children of any node are the game states resulting from any legal move at this state.
+The phases of MCTS are: <br>
+1. Selection: Starting from the root node the highest scored child is selected until a child is reached which does not have any further children.
+2. Expansion: If the node is not terminal, a child node is created for all legal moves and a random one is returned
+3. Rollout: For the node that was returned an entire game is simulated, meaning that sequentially both players take turns making random moves until either player wins or the game is drawn
+4. Backpropagation: The results of this simulation are given to all parent nodes, influencing the score for future iterations.
+<br>
+These steps are then repeated until a threshold number of games simulated or time elapsed is reached. This allows Monte Carlo Tree Search to be interrupted at any point while still yielding a useful prediction for the next best move which cannot be done for the MiniMax algorithm.
 
 ## User Interface
 The user Interface opens with a chess board on the left side on which a figure can be moved by clicking on it and then on the field it should move to, the user can start the game by making a move for white, upon which the AI will respond for black.
