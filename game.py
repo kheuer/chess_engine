@@ -1,9 +1,13 @@
+import chess.svg
 import numpy as np
 import chess
 import cProfile
 import pstats
 import time
-from piece_square_tables import piece_square_tables_early_to_midgame, piece_square_tables_endgame
+from piece_square_tables import (
+    piece_square_tables_early_to_midgame,
+    piece_square_tables_endgame,
+)
 
 
 explain_color = True
@@ -11,7 +15,8 @@ colors = {True: "White", False: "Black"}
 pieces = {1: "Pawn", 2: "Knight", 3: "Bishop", 4: "Rook", 5: "Queen", 6: "King"}
 piece_values_early_to_midgame = {1: 9, 2: 30, 3: 30, 4: 50, 5: 100, 6: 1000000}
 piece_values_endgame = {1: 9, 2: 25, 3: 30, 4: 80, 5: 120, 6: 1000000}
-exploration_parameter = np.sqrt(2)     # exploration factor for monte carlo tree search
+exploration_parameter = np.sqrt(2)  # exploration factor for monte carlo tree search
+
 
 def is_number(x):
     if isinstance(x, bool):
@@ -21,6 +26,7 @@ def is_number(x):
         return True
     except (ValueError, TypeError):
         return False
+
 
 class FitnessContainer:
     def __init__(self, val, content=None):
@@ -40,37 +46,53 @@ class FitnessContainer:
     def __ge__(self, other):
         return self.val >= other.val
 
-
     def __repr__(self):
         return f"Container: fitness={self.val}, moves={self.content}"
+
 
 def get_material_coefficient(score):
     if score > 70:  # query color is far ahead (inf 70)
         return 0.9
     elif score > 30:  # query color is ahead (70 30)
         return 0.95
-    elif score > -30:    # query color is about even (30 -30)
+    elif score > -30:  # query color is about even (30 -30)
         return 1
-    elif score > 0.7:    # query color is behind (-30 -70)
+    elif score > 0.7:  # query color is behind (-30 -70)
         return 1.05
-    else:                   # query color is far behind (-70 -inf)
+    else:  # query color is far behind (-70 -inf)
         return 1.1
+
 
 class Game:
     def __init__(self):
         self.board = chess.Board()
-        #self.board = chess.Board("8/8/prR5/1p1p2k1/1P6/P3P3/2R1K3/8 w - - 0 31")
-        #self.board = chess.Board("r3k2r/ppp2ppp/4b3/2n1p3/3P4/P3pP2/1PP3PP/RKB2B1R")
-        #self.board = chess.Board("rnbqk1nr/ppp2ppp/8/3Pp3/1b1P4/8/PPP2PPP/RNBQKBNR")
-        #self.board = chess.Board("r2qr1k1/1ppbbppp/p1np1n2/4p3/4P3/P1N2N1P/1PPPBPP1/1RBQR1K1")
-        #self.board = chess.Board("rnb1kb1r/1p2p1pp/2pq1n2/p4P2/B2p4/2N2Q2/PPPPNPPP/R1B1K2R")
+        # self.board = chess.Board("8/8/prR5/1p1p2k1/1P6/P3P3/2R1K3/8 w - - 0 31")
+        # self.board = chess.Board("r3k2r/ppp2ppp/4b3/2n1p3/3P4/P3pP2/1PP3PP/RKB2B1R")
+        # self.board = chess.Board("rnbqk1nr/ppp2ppp/8/3Pp3/1b1P4/8/PPP2PPP/RNBQKBNR")
+        # self.board = chess.Board("r2qr1k1/1ppbbppp/p1np1n2/4p3/4P3/P1N2N1P/1PPPBPP1/1RBQR1K1")
+        # self.board = chess.Board("rnb1kb1r/1p2p1pp/2pq1n2/p4P2/B2p4/2N2Q2/PPPPNPPP/R1B1K2R")
         self.set_endgame_flag()
+
+    def get_board_image(self):
+        return chess.svg.board(self.board)
 
     def print_fen(self):
         print(self.board.board_fen())
 
     def square_number_to_coords(self, square_number):
-        return 7-chess.square_rank(square_number), chess.square_file(square_number)
+        return 7 - chess.square_rank(square_number), chess.square_file(square_number)
+
+    def get_move_from_coords(self, origin, target):
+        uci = (
+            f"{'abcdefgh'[origin[1]]}{8-origin[0]}{'abcdefgh'[target[1]]}{8-target[0]}"
+        )
+        move = chess.Move.from_uci(uci)
+        promotion_move = chess.Move.from_uci(uci + "q")
+
+        if self.board.is_legal(promotion_move):
+            return promotion_move
+        else:
+            return move
 
     def get_moves_for_field(self, origin):
         possible_moves = []
@@ -78,7 +100,9 @@ class Game:
         for possible_move in self.board.legal_moves:
             if self.square_number_to_coords(possible_move.from_square) == origin:
                 possible_moves.append(possible_move)
-                possible_coordinates.append(self.square_number_to_coords(possible_move.to_square))
+                possible_coordinates.append(
+                    self.square_number_to_coords(possible_move.to_square)
+                )
         return possible_moves, possible_coordinates
 
     def set_pieces_left(self):
@@ -103,7 +127,9 @@ class Game:
             else:
                 method = "minimax_5"
         if log:
-            print(f"   finding best move for {colors[self.board.turn]} with method: {method}")
+            print(
+                f"   finding best move for {colors[self.board.turn]} with method: {method}"
+            )
 
         if method == "random":
             all_moves = self.get_moves()
@@ -150,9 +176,10 @@ class Game:
             expanded_leaf = self.mcts_expansion(leaf)
             end_result = self.mcts_simulate(maximizing_for)
             self.mcts_backpropagate(expanded_leaf, end_result)
-            while len(self.board.move_stack) != starting_n_turns:  # take back turns to where the algorithm started from
+            while (
+                len(self.board.move_stack) != starting_n_turns
+            ):  # take back turns to where the algorithm started from
                 self.board.pop()
-        print("preformed monte carlo tree search with root node", root_node)
         return root_node.get_most_visited_child().move
 
     def mcts_selection(self, node):
@@ -163,7 +190,7 @@ class Game:
         return node
 
     def mcts_expansion(self, node):
-        if self.board.outcome():    # game has ended
+        if self.board.outcome():  # game has ended
             return node
         else:
             for move in self.board.legal_moves:
@@ -206,10 +233,14 @@ class Game:
                 for field in self.board.pieces(piece, piece_color):
                     if piece_color == color:
                         material += piece_value_lookup_table[piece]
-                        positional += piece_square_lookup_table[piece_color][piece][field]
+                        positional += piece_square_lookup_table[piece_color][piece][
+                            field
+                        ]
                     else:
                         material -= piece_value_lookup_table[piece]
-                        positional -= piece_square_lookup_table[piece_color][piece][field]
+                        positional -= piece_square_lookup_table[piece_color][piece][
+                            field
+                        ]
         return material * get_material_coefficient(material) + positional
 
     def explain_fitness(self, color=explain_color):
@@ -234,8 +265,13 @@ class Game:
                 else:
                     color_multiplier = -1
 
-                material[row, col] = piece_value_lookup_table[piece_type] * color_multiplier
-                positional[row, col] = piece_square_lookup_table[piece_color][piece_type][field] * color_multiplier
+                material[row, col] = (
+                    piece_value_lookup_table[piece_type] * color_multiplier
+                )
+                positional[row, col] = (
+                    piece_square_lookup_table[piece_color][piece_type][field]
+                    * color_multiplier
+                )
 
         print("Material:")
         self.print_array(material)
@@ -243,7 +279,9 @@ class Game:
         self.print_array(positional)
         material_val = round(sum(sum(material)), 2)
         positional_val = round(sum(sum(positional)), 2)
-        print(f"\nmaterial: {material_val}, positional: {positional_val}, adjusted sum: {material_val} * {get_material_coefficient(material_val)} + {positional_val} = {round(self.get_fitness(color), 2)}")
+        print(
+            f"\nmaterial: {material_val}, positional: {positional_val}, adjusted sum: {material_val} * {get_material_coefficient(material_val)} + {positional_val} = {round(self.get_fitness(color), 2)}"
+        )
 
     def print_array(self, array):
         for row in array:
@@ -251,26 +289,35 @@ class Game:
 
     def alphabeta_search(self, depth):
         # this should only be initialized with an even depth because of the horizon effect
-        print(f"Get best move for {colors[self.board.turn]} with dept={depth}")
-        fitness_container = self.alphabeta(depth, FitnessContainer(-10000000000000), FitnessContainer(1000000000000), True, self.board.turn, depth % 2 == 0)
-        print(fitness_container.content, "payoff", fitness_container.val)
+        fitness_container = self.alphabeta(
+            depth,
+            FitnessContainer(-10000000000000),
+            FitnessContainer(1000000000000),
+            True,
+            self.board.turn,
+            depth % 2 == 0,
+        )
 
-        if self.board.outcome():    # Game has ended
+        if self.board.outcome():  # Game has ended
             return None
         return fitness_container.content[0]
 
     def alphabeta(self, depth, alpha, beta, is_maximizing, target_color, is_even):
-        if depth == 0:       # depth is zero
+        if depth == 0:  # depth is zero
             return FitnessContainer(self.get_fitness(target_color), ["Frontier"])
-        if depth == 1:      # last call
+        if depth == 1:  # last call
             if is_even:
                 moves, non_capture_moves_exist = self.get_capture_moves()
                 if not moves and non_capture_moves_exist:
-                    return FitnessContainer(self.get_fitness(target_color), ["Frontier"])
+                    return FitnessContainer(
+                        self.get_fitness(target_color), ["Frontier"]
+                    )
             else:
                 moves, capture_moves_exist = self.get_non_capture_moves()
                 if not moves and capture_moves_exist:
-                    return FitnessContainer(self.get_fitness(target_color), ["Frontier"])
+                    return FitnessContainer(
+                        self.get_fitness(target_color), ["Frontier"]
+                    )
         else:
             moves = self.get_moves()
 
@@ -279,34 +326,42 @@ class Game:
             if outcome.winner is None:
                 return FitnessContainer(0, ["Draw"])
             elif outcome.winner == target_color:
-                return FitnessContainer(1000000 + depth, [colors[outcome.winner] + " wins."])
+                return FitnessContainer(
+                    1000000 + depth, [colors[outcome.winner] + " wins."]
+                )
             else:
-                return FitnessContainer(-1000000 - depth, [colors[outcome.winner] + " wins."])
+                return FitnessContainer(
+                    -1000000 - depth, [colors[outcome.winner] + " wins."]
+                )
 
         if is_maximizing:
             value = FitnessContainer(-1000000000)
             for move in moves:
                 self.board.push(move)
-                new_value = self.alphabeta(depth - 1, alpha, beta, False, target_color, is_even)
+                new_value = self.alphabeta(
+                    depth - 1, alpha, beta, False, target_color, is_even
+                )
                 if new_value > value:
                     value = new_value
                     best_move = move
                 self.board.pop()
                 if value > beta:
-                    break       # beta cutoff
+                    break  # beta cutoff
                 alpha = max(alpha, value)
             return FitnessContainer(value.val, [best_move] + value.content)
         else:
             value = FitnessContainer(1000000000)
             for move in moves:
                 self.board.push(move)
-                new_value = self.alphabeta(depth - 1, alpha, beta, True, target_color, is_even)
+                new_value = self.alphabeta(
+                    depth - 1, alpha, beta, True, target_color, is_even
+                )
                 if new_value < value:
                     value = new_value
                     best_move = move
                 self.board.pop()
                 if value <= alpha:
-                    break       # alpha cutoff
+                    break  # alpha cutoff
                 beta = min(beta, value)
             return FitnessContainer(value.val, [best_move] + value.content)
 
@@ -377,7 +432,9 @@ class MCTS_Node:
         self.n_visits = 1
 
     def get_ucb_score(self):
-        return self.utility / self.n_visits + exploration_parameter * np.sqrt(np.log(self.parent.n_visits) / self.n_visits)
+        return self.utility / self.n_visits + exploration_parameter * np.sqrt(
+            np.log(self.parent.n_visits) / self.n_visits
+        )
 
     def __repr__(self):
         return f"{self.utility}/{self.n_visits}"
@@ -395,12 +452,12 @@ class MCTS_Node:
         indices = [i for i, x in enumerate(scores) if x == max(scores)]
         return self.children[np.random.choice(indices)]
 
+
 def simulate_game():
     game = Game()
     for i in range(10):
         game.board.push(game.get_best_move("minimax_5"))
         print(i)
-
 
 
 if __name__ == "__main__":

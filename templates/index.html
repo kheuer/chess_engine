@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap">
+    <style>
+        body {
+            background-color: #eaeaea;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+        }
+
+        #chessboard-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            /* Add this line */
+        }
+
+        #chessboard {
+            display: grid;
+            grid-template-columns: repeat(8, 60px);
+            grid-template-rows: repeat(8, 60px);
+            margin-bottom: 20px;
+        }
+
+        .square {
+            cursor: pointer;
+            position: relative;
+            /* Required to position the field name absolutely within the square */
+            width: 60px;
+            /* Example size, adjust as needed */
+            height: 60px;
+            transition: background-color 0.3s ease;
+            /* Example size, adjust as needed */
+            display: inline-block;
+            /* Make it a block element for layout */
+
+        }
+
+        .black {
+            background-color: #b58863;
+        }
+
+        .white {
+            background-color: #f0d9b5;
+        }
+
+        .piece {
+            font-size: 48px;
+            text-align: center;
+            line-height: 60px;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin: 5px;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        .spinner {
+            border: 16px solid #f3f3f3;
+            border-top: 16px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 2s linear infinite;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .field-name {
+            font-size: 8px;
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            color: rgba(0, 0, 0, 0.5);
+        }
+
+
+
+        #loadingIndicator {
+            display: none;
+            position: absolute;
+            /* Changed from fixed to absolute */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            /* Add this line for z-index */
+        }
+    </style>
+</head>
+
+<body>
+
+
+    <div id="chessboard-container">
+        <div id="loadingIndicator">
+            <div class="spinner"></div>
+        </div>
+        <h4>Chess Game</h4>
+        <h5>Black uses AI method: {{ ai_method }}</h5>
+        <br>
+        <br>
+        <div id="chessboard"></div>
+        <form method="POST" action="/chess/">
+            <input type="hidden" name="undo" value=true>
+            <button type="submit">Undo Last Move</button>
+        </form>
+
+        <form method="POST" action="/chess/">
+            <input type="hidden" name="reset" value=true>
+            <button type="submit">Reset Game</button>
+        </form>
+
+        <form method="POST" action="/chess/">
+            <label for="algorithm">Change blacks algorithm:</label>
+            <select id="ai_method" name="ai_method">
+                <option value="random" {% if ai_method=='Random Strategy' %}selected{% endif %}>Random
+                    Strategy</option>
+                <option value="minimax_2" {% if ai_method=='Minimax (2 Turns)' %}selected{% endif %}>Minimax
+                    (2 Turns)</option>
+                <option value="minimax_3" {% if ai_method=='Minimax (3 Turns)' %}selected{% endif %}>Minimax
+                    (3 Turns)</option>
+                <option value="minimax_4" {% if ai_method=='Minimax (4 Turns)' %}selected{% endif %}>Minimax
+                    (4 Turns)</option>
+                <option value="minimax_5" {% if ai_method=='Minimax (5 Turns)' %}selected{% endif %}>Minimax
+                    (5 Turns)</option>
+                <option value="minimax_auto" {% if ai_method=='Minimax Auto' %}selected{% endif %}>Minimax Auto
+                </option>
+                <option value="mcts_1s" {% if ai_method=='MCTS (1 second)' %}selected{% endif %}>MCTS (1
+                    second)</option>
+                <option value="mcts_3s" {% if ai_method=='MCTS (3 seconds)' %}selected{% endif %}>MCTS (3
+                    seconds)</option>
+                <option value="mcts_6s" {% if ai_method=='MCTS (6 seconds)' %}selected{% endif %}>MCTS (6
+                    seconds)</option>
+                <option value="mcts_10s" {% if ai_method=='MCTS (10 seconds)' %}selected{% endif %}>MCTS
+                    (10 seconds)</option>
+            </select>
+            <button type="submit">Submit</button>
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const fen = "{{ fen }}";
+            const highlightedRow = Number("{{ selected_square[0] }}");
+            const highlightedCol = Number("{{ selected_square[1] }}");
+            const possibleTargets = "{{ possible_targets }}";
+
+            const chessboard = document.getElementById('chessboard');
+
+            function createBoard(fen) {
+                const rows = fen.split(" ")[0].split("/");
+                chessboard.innerHTML = ''; // Clear the board
+
+                rows.forEach((row, rowIndex) => {
+                    let colIndex = 0; // Reset colIndex for each new row
+                    for (let char of row) {
+                        const square = document.createElement('div');
+                        square.className = 'square ' + ((rowIndex + colIndex) % 2 === 0 ? 'white' : 'black');
+                        let targetString = `(${rowIndex}, ${colIndex})`;
+
+                        // Highlight the square if it's the highlighted position
+                        if ((rowIndex === highlightedRow && colIndex === highlightedCol) ||
+                            possibleTargets.includes(targetString)) {
+                            // Clear any existing highlight
+                            square.querySelector('.highlight-circle')?.remove();
+
+                            // Create a new div for the circle
+                            const circle = document.createElement('div');
+                            circle.className = 'highlight-circle';
+
+                            // Set the styles for the circle
+                            circle.style.position = 'absolute';
+                            circle.style.top = '50%';
+                            circle.style.left = '50%';
+                            circle.style.width = '100%'; // Adjust the size as needed
+                            circle.style.height = '100%'; // Adjust the size as needed
+                            circle.style.backgroundColor = 'rgba(255, 255, 255, 0.5)'; // White with 50% transparency
+                            circle.style.borderRadius = '50%'; // Make it circular
+                            circle.style.transform = 'translate(-50%, -50%)'; // Center the circle
+                            circle.style.pointerEvents = 'none'; // Allow clicks through the circle
+
+                            // Append the circle to the square
+                            square.appendChild(circle);
+                        }
+
+                        // Add click event to square and existing functionality
+                        square.addEventListener('click', (() => {
+                            const currentRow = rowIndex; // Capture current row index
+                            const currentCol = colIndex; // Capture current column index
+                            return () => {
+                                sendClickData(currentRow, currentCol); // Use captured values
+                            };
+                        })());
+
+                        // Add field name in small writing
+                        const fieldName = document.createElement('span');
+                        fieldName.className = 'field-name'; // Add a class for styling
+                        fieldName.textContent = `${String.fromCharCode(97 + colIndex)}${8 - rowIndex}`; // a1, b1, ..., h8
+
+                        // Append the field name to the square
+                        square.appendChild(fieldName);
+
+                        if (isNaN(char)) {
+                            // Piece found
+                            const piece = document.createElement('div');
+                            piece.className = 'piece';
+                            piece.textContent = getPieceSymbol(char);
+                            square.appendChild(piece);
+                            chessboard.appendChild(square);
+                            colIndex++; // Increment colIndex after adding a piece
+                        } else {
+                            // Empty spaces
+                            for (let i = 0; i < parseInt(char); i++) {
+                                const emptySquare = document.createElement('div');
+                                emptySquare.className = 'square ' + ((rowIndex + colIndex) % 2 === 0 ? 'white' : 'black');
+
+                                // Add field name for empty squares
+                                const emptyFieldName = document.createElement('span');
+                                emptyFieldName.className = 'field-name'; // Add a class for styling
+                                emptyFieldName.textContent = `${String.fromCharCode(97 + colIndex)}${8 - rowIndex}`; // a1, b1, ..., h8
+                                emptySquare.appendChild(emptyFieldName);
+                                let targetString = `(${rowIndex}, ${colIndex})`;
+
+                                if (possibleTargets.includes(targetString)) {
+                                    // Clear any existing highlight
+                                    emptySquare.querySelector('.highlight-circle')?.remove();
+
+                                    // Create a new div for the circle
+                                    const circle = document.createElement('div');
+                                    circle.className = 'highlight-circle';
+
+                                    // Set the styles for the circle
+                                    circle.style.position = 'absolute';
+                                    circle.style.top = '50%';
+                                    circle.style.left = '50%';
+                                    circle.style.width = '100%'; // Adjust the size as needed
+                                    circle.style.height = '100%'; // Adjust the size as needed
+                                    circle.style.backgroundColor = 'rgba(255, 255, 255, 0.5)'; // White with 50% transparency
+                                    circle.style.borderRadius = '50%'; // Make it circular
+                                    circle.style.transform = 'translate(-50%, -50%)'; // Center the circle
+                                    circle.style.pointerEvents = 'none'; // Allow clicks through the circle
+
+                                    // Append the circle to the square
+                                    emptySquare.appendChild(circle);
+                                    // Add click event to square and existing functionality
+                                    emptySquare.addEventListener('click', (() => {
+                                        const currentRow = rowIndex; // Capture current row index
+                                        const currentCol = colIndex; // Capture current column index
+                                        return () => {
+                                            sendClickData(currentRow, currentCol); // Use captured values
+                                        };
+                                    })());
+                                }
+
+                                chessboard.appendChild(emptySquare);
+                                colIndex++; // Increment colIndex for each empty square
+                            }
+                        }
+                    }
+
+                });
+
+            }
+
+            function getPieceSymbol(piece) {
+                const pieces = {
+                    'p': '♟', // Black pawn
+                    'r': '♜', // Black rook
+                    'n': '♞', // Black knight
+                    'b': '♝', // Black bishop
+                    'q': '♛', // Black queen
+                    'k': '♚', // Black king
+                    'P': '♙', // White pawn
+                    'R': '♖', // White rook
+                    'N': '♘', // White knight
+                    'B': '♗', // White bishop
+                    'Q': '♕', // White queen
+                    'K': '♔'  // White king
+                };
+                return pieces[piece] || '';
+            }
+
+            function sendClickData(row, col) {
+                const formData = new FormData();
+                formData.append('row', row);
+                formData.append('col', col);
+
+                // Initialize the loading indicator
+                const loadingIndicator = document.getElementById('loadingIndicator');
+
+                // Show the loading indicator after a short delay
+                setTimeout(() => {
+                    loadingIndicator.style.display = 'block';
+                }, 500); // 1000 milliseconds = 1 second
+
+                fetch('/chess/', {
+                    method: 'POST',
+                    body: formData,
+                })
+                    .then(response => {
+                        // Hide the loading indicator
+                        loadingIndicator.style.display = 'none';
+
+                        if (response.ok) {
+                            // Redirect to a GET route or the main page to avoid re-submission
+                            window.location.href = '/chess/';
+                        } else {
+                            console.error('Error sending click data:', response.statusText);
+                        }
+                    })
+                    .catch(error => {
+                        // Hide the loading indicator
+                        loadingIndicator.style.display = 'none';
+                        console.error('Fetch error:', error);
+                    });
+            }
+
+
+            createBoard(fen);
+        });
+    </script>
+</body>
+
+</html>
