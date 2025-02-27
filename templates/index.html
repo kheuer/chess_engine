@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap">
     <style>
         body {
@@ -119,10 +121,88 @@
             z-index: 10;
             /* Add this line for z-index */
         }
+
+        .container {
+            background: white;
+            padding: 0px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+            /* Make the container relative */
+        }
+
+        .button {
+            display: inline-block;
+            padding: 15px 20px;
+            color: white;
+            background-color: #007BFF;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            text-align: center;
+            text-decoration: none;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        .button:hover {
+            background-color: #0056b3;
+            transform: scale(1.05);
+        }
+
+        .floating-button {
+            position: fixed;
+            bottom: 20px;
+            /* Home button is positioned higher */
+            right: 20px;
+            z-index: 1000;
+        }
+
+        /* Back to Top button */
+        .back-to-top {
+            position: fixed;
+            bottom: 100px;
+            /* Back to Top button is positioned lower */
+            right: 20px;
+            z-index: 1000;
+            display: none;
+            /* Hidden by default */
+            background-color: #007BFF;
+            border: none;
+            border-radius: 50%;
+            padding: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .back-to-top:hover {
+            background-color: #0056b3;
+        }
+
+        .back-to-top i,
+        .floating-button i {
+            font-size: 18px;
+            /* Set icon size */
+        }
     </style>
 </head>
 
 <body>
+
+
+
+    <div class="container">
+        <!-- Back to Top Button -->
+        <button onclick="scrollToTop()" class="back-to-top" id="backToTopBtn">
+            <i class="fas fa-arrow-up"></i>
+        </button>
+
+        <!-- Back to Homepage Button -->
+        <a href="https://kheuer.de/" class="button floating-button" id="homeButton">
+            <i class="fas fa-home"></i>
+        </a>
+    </div>
+
 
 
     <div id="chessboard-container">
@@ -353,6 +433,47 @@
 
             createBoard(fen);
         });
+
+
+
+        // Show the back-to-top button when scrolling down
+        window.onscroll = function () {
+            const backToTopBtn = document.getElementById("backToTopBtn");
+            if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                backToTopBtn.style.display = "block";
+            } else {
+                backToTopBtn.style.display = "none";
+            }
+        };
+
+        // Scroll to the top of the document smoothly
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+
+        // Show the back-to-top button when scrolling down
+        window.onscroll = function () {
+            const backToTopBtn = document.getElementById("backToTopBtn");
+            if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                backToTopBtn.style.display = "block";
+            } else {
+                backToTopBtn.style.display = "none";
+            }
+        };
+
+        // Scroll to the top of the document smoothly
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+
     </script>
 </body>
 
