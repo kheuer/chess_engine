@@ -17,6 +17,7 @@ games = {}
 
 strategy_name_mapping = {
     "random": "Random Strategy",
+    "terrible_player": "Beginner",
     "minimax_2": "Minimax (2 Turns)",
     "minimax_3": "Minimax (3 Turns)",
     "minimax_4": "Minimax (4 Turns)",

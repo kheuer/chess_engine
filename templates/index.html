@@ -134,21 +134,22 @@
         <br>
         <br>
         <div id="chessboard"></div>
-        <form method="POST" action="/chess/">
+        <form method="POST" action="/chess_bot/">
             <input type="hidden" name="undo" value=true>
             <button type="submit">Undo Last Move</button>
         </form>
 
-        <form method="POST" action="/chess/">
+        <form method="POST" action="/chess_bot/">
             <input type="hidden" name="reset" value=true>
             <button type="submit">Reset Game</button>
         </form>
 
-        <form method="POST" action="/chess/">
+        <form method="POST" action="/chess_bot/">
             <label for="algorithm">Change blacks algorithm:</label>
             <select id="ai_method" name="ai_method">
                 <option value="random" {% if ai_method=='Random Strategy' %}selected{% endif %}>Random
                     Strategy</option>
+                <option value="terrible_player" {% if ai_method=='Beginner' %}selected{% endif %}>Beginner</option>
                 <option value="minimax_2" {% if ai_method=='Minimax (2 Turns)' %}selected{% endif %}>Minimax
                     (2 Turns)</option>
                 <option value="minimax_3" {% if ai_method=='Minimax (3 Turns)' %}selected{% endif %}>Minimax
@@ -327,7 +328,7 @@
                     loadingIndicator.style.display = 'block';
                 }, 500); // 1000 milliseconds = 1 second
 
-                fetch('/chess/', {
+                fetch('/chess_bot/', {
                     method: 'POST',
                     body: formData,
                 })
@@ -337,7 +338,7 @@
 
                         if (response.ok) {
                             // Redirect to a GET route or the main page to avoid re-submission
-                            window.location.href = '/chess/';
+                            window.location.href = '/chess_bot/';
                         } else {
                             console.error('Error sending click data:', response.statusText);
                         }
